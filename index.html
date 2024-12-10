@@ -91,55 +91,71 @@
             </tr>
         </thead>
         <tbody>
-            <!-- As linhas serão carregadas dinamicamente do backend -->
+            <!-- As linhas serão carregadas dinamicamente do cache local -->
         </tbody>
     </table>
 
     <script>
-        async function saveRowToBackend(row) {
-            const data = {
-                numero_rifa: parseInt(row.cells[1].textContent), // O número da rifa é a segunda célula
-                nome: row.cells[2].textContent,
-                telefone: row.cells[3].textContent,
-                situacao_pagamento: row.cells[4].textContent
-            };
-
-            await fetch('http://localhost/backend.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(data)
-            });
-        }
-
-        async function loadDataFromBackend() {
-            try {
-                const response = await fetch('http://localhost/backend.php');
-                if (!response.ok) {
-                    throw new Error('Erro na resposta da API: ' + response.statusText);
+        // Inicializa as tabelas no localStorage se não existirem
+        function initializeTables() {
+            if (!localStorage.getItem('tabelas')) {
+                const tabelas = {};
+                for (let i = 1; i <= 100; i++) {
+                    tabelas[`tabela${i}`] = [];
                 }
-                const data = await response.json();
-                console.log(data); // Verifique se os dados estão corretos
-
-                const tbody = document.querySelector('#dataTable tbody');
-                tbody.innerHTML = '';
-
-                data.forEach((row, index) => {
-                    const tr = document.createElement('tr');
-                    tr.innerHTML = `
-                        <td>${index + 1}</td> <!-- Adiciona a numeração da linha -->
-                        <td>${row.numero_rifa || ''}</td>
-                        <td>${row.nome || ''}</td>
-                        <td>${row.telefone || ''}</td>
-                        <td>${row.situacao_pagamento || ''}</td>
-                    `;
-                    tbody.appendChild(tr);
-                });
-            } catch (error) {
-                console.error('Erro ao carregar os dados:', error);
+                localStorage.setItem('tabelas', JSON.stringify(tabelas));
             }
         }
 
-        document.getElementById('editButton').addEventListener('click', async () => {
+// Carrega os dados da tabela do localStorage e exibe na tabela existente
+function loadTableData() {
+    const tabelas = JSON.parse(localStorage.getItem('tabelas'));
+    const tbody = document.querySelector('#dataTable tbody');
+    tbody.innerHTML = '';
+
+    // Preenchendo a tabela com os dados de 1 a 100
+    for (let i = 0; i < 100; i++) {
+        const row = tabelas[`tabela1`][i] || {}; // Pega os dados da linha i ou um objeto vazio se não houver dados
+        const tr = document.createElement('tr');
+
+        tr.innerHTML = `
+            <td>${i + 1}</td> <!-- Número da linha -->
+            <td>${row.numero_rifa || ''}</td>
+            <td>${row.nome || ''}</td>
+            <td>${row.telefone || ''}</td>
+            <td>${row.situacao_pagamento || ''}</td>
+        `;
+
+        tbody.appendChild(tr);
+    }
+}
+
+// Inicializa a tabela se não existir e carrega os dados
+document.addEventListener('DOMContentLoaded', () => {
+    initializeTables();
+    loadTableData();
+});
+
+
+        // Salva a linha na tabela do localStorage
+        function saveRowToCache(row) {
+            const tabelas = JSON.parse(localStorage.getItem('tabelas'));
+            const numeroRifa = parseInt(row.cells[1].textContent);
+            const nome = row.cells[2].textContent;
+            const telefone = row.cells[3].textContent;
+            const situacaoPagamento = row.cells[4].textContent;
+
+            tabelas[`tabela1`].push({
+                numero_rifa: numeroRifa,
+                nome: nome,
+                telefone: telefone,
+                situacao_pagamento: situacaoPagamento
+            });
+
+            localStorage.setItem('tabelas', JSON.stringify(tabelas));
+        }
+
+        document.getElementById('editButton').addEventListener('click', () => {
             const rowNumber = prompt("Digite o número da linha que deseja editar:");
             const table = document.getElementById('dataTable');
             const row = table.rows[parseInt(rowNumber)] || null;
@@ -155,13 +171,13 @@
                 row.cells[3].textContent = telefone || row.cells[3].textContent;
                 row.cells[4].textContent = situacaoPagamento || row.cells[4].textContent;
 
-                await saveRowToBackend(row);
+                saveRowToCache(row);
             } else {
                 alert("Linha inválida!");
             }
         });
 
-        document.getElementById('clearButton').addEventListener('click', async () => {
+        document.getElementById('clearButton').addEventListener('click', () => {
             const rowNumber = prompt("Digite o número da linha que deseja zerar:");
             const table = document.getElementById('dataTable');
             const row = table.rows[parseInt(rowNumber)] || null;
@@ -171,12 +187,13 @@
                 row.cells[2].textContent = "";
                 row.cells[3].textContent = "";
 
-                await saveRowToBackend(row);
+                saveRowToCache(row);
             } else {
                 alert("Linha inválida!");
             }
         });
 
+        // Função para exportar a tabela para Excel
         document.getElementById('exportExcel').addEventListener('click', () => {
             const table = document.getElementById('dataTable');
             let tableData = '';
@@ -197,6 +214,7 @@
             link.click();
         });
 
+        // Função para exportar a tabela para PDF
         document.getElementById('exportPDF').addEventListener('click', () => {
             const { jsPDF } = window.jspdf;
             const table = document.getElementById('dataTable');
@@ -213,7 +231,11 @@
             doc.save('dados.pdf');
         });
 
-        document.addEventListener('DOMContentLoaded', loadDataFromBackend);
+        // Inicializa as tabelas e carrega os dados
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeTables();
+            loadTableData();
+        });
     </script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
